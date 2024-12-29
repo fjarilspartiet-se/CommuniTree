@@ -29,78 +29,96 @@ import Navigation from './components/Navigation';
 import { PermissionProvider } from './contexts/PermissionContext';
 import CommunityManagement from './components/communities/CommunityManagement';
 
+// Suspense fallback component
+const LoadingFallback = () => (
+  <Center h="100vh">
+    <Spinner size="xl" />
+  </Center>
+);
+
 function AppContent() {
   const { t, ready } = useTranslation();
   const theme = useTheme();
-
   const safeTheme = theme && theme.config ? theme : getTheme('default', 'light');
 
-  if (!ready) return <div>{t('common.loading')}</div>;
+  if (!ready) return <LoadingFallback />;
 
   return (
     <ChakraProvider theme={safeTheme}>
       <ColorModeScript initialColorMode={safeTheme.config.initialColorMode} />
       <ErrorProvider>
-        <AuthProvider>
-          <PermissionProvider>
-            <CommunityProvider>
-              <ErrorBoundary t={t}>
-                <Router>
-                  <div className="App">
-                    <div className="tree-background"></div>
-                    <div className="content-wrapper">
-                      <Flex 
-                        as="header" 
-                        className="App-header" 
-                        align="center" 
-                        wrap="wrap" 
-                        padding="1.5rem"
-                        gap={4}
-                      >
-                        <Box>
-                          <h1>{t('appName')}</h1>
-                        </Box>
-                        <Spacer />
-                        <Flex align="center" gap={4}>
-                          <CommunitySwitcher />
-                          <LanguageSwitcher />
-                          <ThemeSwitcher />
-                        </Flex>
-                      </Flex>
-                      <Navigation />
-                      <main>
-                        <Routes>
-                          <Route path="/login" element={<Login />} />
-                          <Route path="/register" element={<Register />} />
-                          <Route path="/forgot-password" element={<ForgotPassword />} />
-                          <Route path="/reset-password/:token" element={<ResetPassword />} />
-                          <Route element={<PrivateRoute />}>
-                            <Route path="/" element={<UserList />} />
-                            <Route path="/projects" element={<ProjectList />} />
-                            <Route path="/projects/create" element={<CreateProject />} />
-                            <Route path="/projects/:id" element={<ProjectDetails />} />
-                            <Route path="/profile" element={<UserProfile />} />
-                            <Route path="/dashboard" element={<Dashboard />} />
-                            <Route path="/events" element={<EventCalendar />} />
-                            <Route path="/communities/:id" element={<CommunityLanding />} />
-                            <Route 
-                              path="/admin/communities" 
-                              element={
-                                <PrivateRoute>
-                                  <CommunityManagement />
-                                </PrivateRoute>
-                              } 
-                            />
-                          </Route>
-                        </Routes>
-                      </main>
+        <ErrorBoundary>
+          <AuthProvider>
+            <PermissionProvider>
+              <ErrorBoundary>
+                <CommunityProvider>
+                  <Router>
+                    <div className="App">
+                      <div className="tree-background"></div>
+                      <div className="content-wrapper">
+                        {/* Navigation Section */}
+                        <ErrorBoundary>
+                          <Flex 
+                            as="header" 
+                            className="App-header" 
+                            align="center" 
+                            wrap="wrap" 
+                            padding="1.5rem"
+                            gap={4}
+                          >
+                            <Box>
+                              <h1>{t('appName')}</h1>
+                            </Box>
+                            <Spacer />
+                            <Flex align="center" gap={4}>
+                              <CommunitySwitcher />
+                              <LanguageSwitcher />
+                              <ThemeSwitcher />
+                            </Flex>
+                          </Flex>
+                          <Navigation />
+                        </ErrorBoundary>
+
+                        {/* Main Content Section */}
+                        <ErrorBoundary>
+                          <main>
+                            <Routes>
+                              {/* Public Routes */}
+                              <Route path="/login" element={<Login />} />
+                              <Route path="/register" element={<Register />} />
+                              <Route path="/forgot-password" element={<ForgotPassword />} />
+                              <Route path="/reset-password/:token" element={<ResetPassword />} />
+
+                              {/* Protected Routes */}
+                              <Route element={<PrivateRoute />}>
+                                <Route path="/" element={<UserList />} />
+                                <Route path="/projects" element={<ProjectList />} />
+                                <Route path="/projects/create" element={<CreateProject />} />
+                                <Route path="/projects/:id" element={<ProjectDetails />} />
+                                <Route path="/profile" element={<UserProfile />} />
+                                <Route path="/dashboard" element={<Dashboard />} />
+                                <Route path="/events" element={<EventCalendar />} />
+                                <Route path="/communities/:id" element={<CommunityLanding />} />
+                                <Route 
+                                  path="/admin/communities" 
+                                  element={
+                                    <PrivateRoute>
+                                      <CommunityManagement />
+                                    </PrivateRoute>
+                                  } 
+                                />
+                              </Route>
+                            </Routes>
+                          </main>
+                        </ErrorBoundary>
+                      </div>
                     </div>
-                  </div>
-                </Router>
+                  </Router>
+                </CommunityProvider>
               </ErrorBoundary>
-            </CommunityProvider>
-          </PermissionProvider>
-        </AuthProvider>
+            </PermissionProvider>
+          </AuthProvider>
+        </ErrorBoundary>
       </ErrorProvider>
     </ChakraProvider>
   );
@@ -109,9 +127,18 @@ function AppContent() {
 function App() {
   return (
     <ThemeProvider>
-      <AppContent />
+      <Suspense fallback={<LoadingFallback />}>
+        <ErrorBoundary>
+          <AppContent />
+        </ErrorBoundary>
+      </Suspense>
     </ThemeProvider>
   );
 }
+
+// PropTypes for App component
+App.propTypes = {
+  // If needed, add any props that might be passed to App
+};
 
 export default App;

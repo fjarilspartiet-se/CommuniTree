@@ -1,23 +1,37 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { ChakraProvider } from '@chakra-ui/react';
 import { I18nextProvider } from 'react-i18next';
-import { AuthProvider } from '../contexts/AuthContext';
 import { CommunityProvider } from '../contexts/CommunityContext';
 import { ErrorProvider } from '../contexts/ErrorContext';
+import { AuthProvider } from '../contexts/AuthContext';
+import { ErrorCodes } from '../utils/apiErrorHandler';
 import i18n from '../i18n';
 import ProjectList from './ProjectList';
+import api from '../api';
 
-const mockUser = { id: 1, token: 'mock-token' };
-jest.mock('../contexts/AuthContext', () => ({
-  useAuth: () => ({ user: mockUser }),
-  AuthProvider: ({ children }) => <div>{children}</div>
+// Mock API
+jest.mock('../api');
+
+// Mock navigation
+const mockedNavigate = jest.fn();
+jest.mock('react-router-dom', () => ({
+  ...jest.requireActual('react-router-dom'),
+  useNavigate: () => mockedNavigate,
 }));
 
+// Mock toast
+const mockToast = jest.fn();
+jest.mock('@chakra-ui/react', () => ({
+  ...jest.requireActual('@chakra-ui/react'),
+  useToast: () => mockToast,
+}));
+
+// Mock active communities
 const mockActiveCommunities = [
-  { id: 1, name: 'Community 1', theme: { primaryColor: '#3182ce' } },
-  { id: 2, name: 'Community 2', theme: { primaryColor: '#38A169' } }
+  { id: 1, name: 'Community 1' },
+  { id: 2, name: 'Community 2' }
 ];
 
 jest.mock('../contexts/CommunityContext', () => ({
@@ -27,6 +41,14 @@ jest.mock('../contexts/CommunityContext', () => ({
   CommunityProvider: ({ children }) => <div>{children}</div>
 }));
 
+// Mock auth context
+const mockUser = { id: 1, token: 'mock-token' };
+jest.mock('../contexts/AuthContext', () => ({
+  useAuth: () => ({ user: mockUser }),
+  AuthProvider: ({ children }) => <div>{children}</div>
+}));
+
+// Sample projects data
 const mockProjects = {
   projects: [
     {
@@ -34,25 +56,23 @@ const mockProjects = {
       title: 'Test Project 1',
       description: 'Description 1',
       status: 'open',
-      community_id: 1
+      community_id: 1,
+      required_skills: ['React', 'Node.js']
     },
     {
       id: 2,
       title: 'Test Project 2',
       description: 'Description 2',
       status: 'in_progress',
-      community_id: 2
+      community_id: 2,
+      required_skills: ['Python', 'Django']
     }
   ],
-  currentPage: 1,
-  totalPages: 1,
-  totalProjects: 2
+  hasMore: true,
+  total: 2
 };
 
-const mockFetch = jest.fn();
-global.fetch = mockFetch;
-
-const renderProjectList = () => {
+const renderProjectList = (props = {}) => {
   return render(
     <BrowserRouter>
       <ChakraProvider>
@@ -60,7 +80,7 @@ const renderProjectList = () => {
           <AuthProvider>
             <ErrorProvider>
               <CommunityProvider>
-                <ProjectList />
+                <ProjectList {...props} />
               </CommunityProvider>
             </ErrorProvider>
           </AuthProvider>
@@ -73,18 +93,18 @@ const renderProjectList = () => {
 describe('ProjectList Component', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve(mockProjects)
-    });
+    api.get.mockReset();
   });
 
-  test('renders loading state initially', () => {
+  test('renders loading state initially', async () => {
+    api.get.mockImplementationOnce(() => new Promise(resolve => setTimeout(resolve, 100)));
     renderProjectList();
-    expect(screen.getByText(/loading/i)).toBeInTheDocument();
+    
+    expect(screen.getAllByTestId('skeleton')).toHaveLength(3);
   });
 
-  test('renders project list after loading', async () => {
+  test('renders projects after loading', async () => {
+    api.get.mockResolvedValueOnce(mockProjects);
     renderProjectList();
 
     await waitFor(() => {
@@ -95,108 +115,174 @@ describe('ProjectList Component', () => {
     });
   });
 
-  test('displays create project button when communities are selected', async () => {
+  test('handles empty project list', async () => {
+    api.get.mockResolvedValueOnce({ projects: [], hasMore: false, total: 0 });
     renderProjectList();
 
     await waitFor(() => {
-      expect(screen.getByText(/create new/i)).toBeInTheDocument();
+      expect(screen.getByText(/no projects/i)).toBeInTheDocument();
     });
   });
 
-  test('filters projects by search term', async () => {
+  test('handles network error', async () => {
+    api.get.mockRejectedValueOnce({ code: ErrorCodes.NETWORK_ERROR });
+    renderProjectList();
+
+    await waitFor(() => {
+      expect(screen.getByText(/network error/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+    });
+  });
+
+  test('handles retry after error', async () => {
+    api.get.mockRejectedValueOnce({ code: ErrorCodes.NETWORK_ERROR })
+       .mockResolvedValueOnce(mockProjects);
+    
+    renderProjectList();
+
+    await waitFor(() => {
+      expect(screen.getByText(/network error/i)).toBeInTheDocument();
+    });
+
+    const retryButton = screen.getByRole('button', { name: /retry/i });
+    fireEvent.click(retryButton);
+
+    await waitFor(() => {
+      mockProjects.projects.forEach(project => {
+        expect(screen.getByText(project.title)).toBeInTheDocument();
+      });
+    });
+  });
+
+  test('handles search functionality', async () => {
+    api.get.mockResolvedValueOnce(mockProjects);
     renderProjectList();
 
     const searchInput = await screen.findByPlaceholderText(/search/i);
-    fireEvent.change(searchInput, { target: { value: 'Project 1' } });
+    fireEvent.change(searchInput, { target: { value: 'Test Project 1' } });
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('search=Project%201'),
+      expect(api.get).toHaveBeenCalledWith(
+        expect.stringContaining('search=Test%20Project%201'),
         expect.any(Object)
       );
     });
   });
 
-  test('filters projects by status', async () => {
+  test('handles filter functionality', async () => {
+    api.get.mockResolvedValueOnce(mockProjects);
     renderProjectList();
 
-    const statusSelect = await screen.findByRole('combobox');
-    fireEvent.change(statusSelect, { target: { value: 'open' } });
+    const filterSelect = await screen.findByRole('combobox');
+    fireEvent.change(filterSelect, { target: { value: 'open' } });
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith(
+      expect(api.get).toHaveBeenCalledWith(
         expect.stringContaining('filter=open'),
         expect.any(Object)
       );
     });
   });
 
-  test('handles pagination', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({
-        ...mockProjects,
-        currentPage: 1,
-        totalPages: 2
-      })
-    });
-
+  test('handles skills filter', async () => {
+    api.get.mockResolvedValueOnce(mockProjects);
     renderProjectList();
 
-    const loadMoreButton = await screen.findByText(/load more/i);
-    fireEvent.click(loadMoreButton);
+    const skillsInput = screen.getByPlaceholderText(/skills/i);
+    fireEvent.change(skillsInput, { target: { value: 'React,Node.js' } });
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('page=2'),
+      expect(api.get).toHaveBeenCalledWith(
+        expect.stringContaining('skills=React%2CNode.js'),
         expect.any(Object)
       );
     });
   });
 
-  test('displays community badges on projects', async () => {
-    renderProjectList();
-
-    await waitFor(() => {
-      mockProjects.projects.forEach(project => {
-        const communityName = mockActiveCommunities.find(
-          c => c.id === project.community_id
-        ).name;
-        expect(screen.getByText(communityName)).toBeInTheDocument();
+  test('handles load more functionality', async () => {
+    api.get
+      .mockResolvedValueOnce(mockProjects)
+      .mockResolvedValueOnce({
+        projects: [{ id: 3, title: 'Test Project 3', description: 'Description 3' }],
+        hasMore: false,
+        total: 3
       });
-    });
-  });
 
-  test('handles error state', async () => {
-    mockFetch.mockRejectedValueOnce(new Error('Failed to fetch'));
     renderProjectList();
 
     await waitFor(() => {
-      expect(screen.getByText(/error/i)).toBeInTheDocument();
+      expect(screen.getByText(/load more/i)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText(/load more/i));
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Project 3')).toBeInTheDocument();
+      expect(screen.queryByText(/load more/i)).not.toBeInTheDocument();
     });
   });
 
-  test('navigates to project details on click', async () => {
+  test('handles refresh functionality', async () => {
+    api.get
+      .mockResolvedValueOnce(mockProjects)
+      .mockResolvedValueOnce(mockProjects);
+
     renderProjectList();
 
-    const projectTitle = await screen.findByText('Test Project 1');
-    const projectLink = projectTitle.closest('a');
-    expect(projectLink).toHaveAttribute('href', '/projects/1');
+    await waitFor(() => {
+      expect(screen.getByText(/refresh/i)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText(/refresh/i));
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'success',
+          title: expect.stringMatching(/refresh success/i)
+        })
+      );
+    });
+  });
+
+  test('handles unauthorized error', async () => {
+    api.get.mockRejectedValueOnce({ code: ErrorCodes.UNAUTHORIZED });
+    renderProjectList();
+
+    await waitFor(() => {
+      expect(screen.getByText(/unauthorized/i)).toBeInTheDocument();
+    });
+  });
+
+  test('handles request cancellation', async () => {
+    const mockAbort = jest.fn();
+    const mockAbortController = { abort: mockAbort, signal: 'mock-signal' };
+    global.AbortController = jest.fn(() => mockAbortController);
+
+    renderProjectList();
+
+    // Component unmount
+    await act(async () => {
+      cleanup();
+    });
+
+    expect(mockAbort).toHaveBeenCalled();
   });
 
   test('handles language switching', async () => {
+    api.get.mockResolvedValueOnce(mockProjects);
     renderProjectList();
 
     // Change language to Swedish
     await i18n.changeLanguage('sv');
     
+    expect(screen.getByText(/projekt/i)).toBeInTheDocument();
     expect(screen.getByText(/skapa ny/i)).toBeInTheDocument();
-    expect(screen.getByText(/sök/i)).toBeInTheDocument();
     
     // Change back to English
     await i18n.changeLanguage('en');
     
+    expect(screen.getByText(/projects/i)).toBeInTheDocument();
     expect(screen.getByText(/create new/i)).toBeInTheDocument();
-    expect(screen.getByText(/search/i)).toBeInTheDocument();
   });
 });

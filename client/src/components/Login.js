@@ -3,6 +3,7 @@ import PropTypes from 'prop-types';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
+import api, { ErrorCodes, isNetworkError } from '../api';
 import {
   Box, 
   Button, 
@@ -16,31 +17,130 @@ import {
   Alert, 
   AlertIcon,
   Divider,
-  HStack
+  useToast,
+  FormErrorMessage
 } from '@chakra-ui/react';
 
-const Login = ({ redirectPath }) => {  // Added redirectPath prop
+const Login = ({ redirectPath = '/dashboard' }) => {  
   const { t } = useTranslation();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { login } = useAuth();
+  const toast = useToast();
+
+  // Form state
+  const [formData, setFormData] = useState({
+    email: '',
+    password: ''
+  });
+  const [formErrors, setFormErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+
+  // Track failed attempts for rate limiting
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const MAX_ATTEMPTS = 5;
+  const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes
+  const [lockoutEnd, setLockoutEnd] = useState(null);
+
+  const validateForm = () => {
+    const errors = {};
+    if (!formData.email) {
+      errors.email = t('login.emailRequired');
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      errors.email = t('login.invalidEmail');
+    }
+    if (!formData.password) {
+      errors.password = t('login.passwordRequired');
+    }
+    return errors;
+  };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    // Clear errors when user starts typing
+    if (formErrors[name]) {
+      setFormErrors(prev => ({
+        ...prev,
+        [name]: undefined
+      }));
+    }
+    setError(null);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setIsLoading(true);
+
+    // Check if account is locked out
+    if (lockoutEnd && new Date() < new Date(lockoutEnd)) {
+      const remainingTime = Math.ceil((new Date(lockoutEnd) - new Date()) / 1000 / 60);
+      setError(t('login.accountLocked', { minutes: remainingTime }));
+      return;
+    }
+
+    // Validate form
+    const errors = validateForm();
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
 
     try {
-      await login(email, password);
-      navigate(redirectPath || '/dashboard');
+      await login(formData.email, formData.password);
+      
+      // Reset failed attempts on successful login
+      setFailedAttempts(0);
+      setLockoutEnd(null);
+      
+      // Show success message
+      toast({
+        title: t('login.success'),
+        status: 'success',
+        duration: 2000,
+        isClosable: true
+      });
+
+      // Redirect
+      navigate(redirectPath);
     } catch (err) {
-      console.error('Login error:', err);
-      setError(err.response?.data?.msg || t('login.error'));
+      // Handle different types of errors
+      if (err.code === ErrorCodes.INVALID_CREDENTIALS) {
+        const newAttempts = failedAttempts + 1;
+        setFailedAttempts(newAttempts);
+        
+        // Check if should lock account
+        if (newAttempts >= MAX_ATTEMPTS) {
+          const lockoutTime = new Date(Date.now() + LOCKOUT_DURATION);
+          setLockoutEnd(lockoutTime);
+          setError(t('login.tooManyAttempts', { minutes: LOCKOUT_DURATION / 60000 }));
+        } else {
+          setError(t('login.invalidCredentials', { 
+            remainingAttempts: MAX_ATTEMPTS - newAttempts 
+          }));
+        }
+      } else if (isNetworkError(err)) {
+        setError(t('login.networkError'));
+      } else {
+        setError(t(`errors.${err.code}`, { defaultValue: t('login.error') }));
+      }
+
+      // Show error toast for certain types of errors
+      if (err.code === ErrorCodes.SERVICE_UNAVAILABLE) {
+        toast({
+          title: t('login.serviceUnavailable'),
+          status: 'error',
+          duration: 5000,
+          isClosable: true
+        });
+      }
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -60,31 +160,39 @@ const Login = ({ redirectPath }) => {  // Added redirectPath prop
 
         <form onSubmit={handleSubmit} style={{ width: '100%' }}>
           <VStack spacing={4}>
-            <FormControl id="email" isRequired>
+            <FormControl isInvalid={!!formErrors.email} isRequired>
               <FormLabel>{t('login.email')}</FormLabel>
               <Input
                 type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
                 placeholder={t('login.emailPlaceholder')}
+                isDisabled={isSubmitting || !!lockoutEnd}
               />
+              <FormErrorMessage>{formErrors.email}</FormErrorMessage>
             </FormControl>
 
-            <FormControl id="password" isRequired>
+            <FormControl isInvalid={!!formErrors.password} isRequired>
               <FormLabel>{t('login.password')}</FormLabel>
               <Input
                 type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
                 placeholder={t('login.passwordPlaceholder')}
+                isDisabled={isSubmitting || !!lockoutEnd}
               />
+              <FormErrorMessage>{formErrors.password}</FormErrorMessage>
             </FormControl>
 
             <Button
               type="submit"
               colorScheme="blue"
               width="full"
-              isLoading={isLoading}
+              isLoading={isSubmitting}
+              isDisabled={!!lockoutEnd}
+              loadingText={t('login.loggingIn')}
             >
               {t('login.submit')}
             </Button>
@@ -111,12 +219,15 @@ const Login = ({ redirectPath }) => {  // Added redirectPath prop
 };
 
 Login.propTypes = {
-  // Optional prop
-  redirectPath: PropTypes.string
+  redirectPath: PropTypes.string,
+  onLoginSuccess: PropTypes.func,
+  onLoginError: PropTypes.func
 };
 
 Login.defaultProps = {
-  redirectPath: '/dashboard'
+  redirectPath: '/dashboard',
+  onLoginSuccess: undefined,
+  onLoginError: undefined
 };
 
 export default Login;

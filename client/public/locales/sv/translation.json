@@ -371,8 +371,30 @@
     "sendError": "Fel vid sändning av meddelande: "
   },
   "errorBoundary": {
-    "title": "Hoppsan! Något gick fel.",
-    "message": "Vi ber om ursäkt, men ett fel inträffade. Försök att uppdatera sidan eller kontakta support om problemet kvarstår."
+    "title": "Ett fel uppstod",
+    "description": "Vi ber om ursäkt för besväret. Applikationen har stött på ett oväntat fel.",
+    "retry": "Försök igen",
+    "report": "Rapportera problem",
+    "returnHome": "Återgå till startsidan",
+    "tooManyErrors": "För många fel uppstod. Vänligen försök igen senare."
+  },
+  "errors": {
+    "AUTH001": "Ogiltigt användarnamn eller lösenord",
+    "AUTH002": "Din session har gått ut. Vänligen logga in igen",
+    "AUTH003": "Du har inte behörighet att utföra denna åtgärd",
+    "RES001": "Den begärda resursen hittades inte",
+    "RES002": "Denna resurs finns redan",
+    "RES003": "En konflikt uppstod med nuvarande tillstånd",
+    "VAL001": "Ogiltig inmatning angiven",
+    "VAL002": "Obligatoriska fält saknas",
+    "SRV001": "Ett internt serverfel uppstod",
+    "SRV002": "Tjänsten är tillfälligt otillgänglig",
+    "SRV003": "Ett databasfel uppstod",
+    "RAT001": "För många förfrågningar. Försök igen senare",
+    "FIL001": "Filen är för stor",
+    "FIL002": "Ogiltig filtyp",
+    "NET001": "Ett nätverksfel uppstod",
+    "NET002": "Förfrågan tog för lång tid"
   },
   "errorContext": {
     "errorOccurred": "Ett fel inträffade",

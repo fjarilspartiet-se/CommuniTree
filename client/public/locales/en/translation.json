@@ -372,8 +372,30 @@
     "sendError": "Error sending message: "
   },
   "errorBoundary": {
-    "title": "Oops! Something went wrong.",
-    "message": "We're sorry, but an error occurred. Please try refreshing the page or contact support if the problem persists."
+    "title": "An error occurred",
+    "description": "We apologize for the inconvenience. The application has encountered an unexpected error.",
+    "retry": "Try Again",
+    "report": "Report Issue",
+    "returnHome": "Return to Home",
+    "tooManyErrors": "Too many errors occurred. Please try again later."
+  },
+  "errors": {
+    "AUTH001": "Invalid username or password",
+    "AUTH002": "Your session has expired. Please log in again",
+    "AUTH003": "You don't have permission to perform this action",
+    "RES001": "The requested resource was not found",
+    "RES002": "This resource already exists",
+    "RES003": "A conflict occurred with the current state",
+    "VAL001": "Invalid input provided",
+    "VAL002": "Required fields are missing",
+    "SRV001": "An internal server error occurred",
+    "SRV002": "The service is temporarily unavailable",
+    "SRV003": "A database error occurred",
+    "RAT001": "Too many requests. Please try again later",
+    "FIL001": "The file is too large",
+    "FIL002": "Invalid file type",
+    "NET001": "A network error occurred",
+    "NET002": "The request timed out"
   },
   "errorContext": {
     "errorOccurred": "An error occurred",

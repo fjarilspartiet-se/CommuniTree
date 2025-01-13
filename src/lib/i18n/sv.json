@@ -1,0 +1,39 @@
+{
+  "home": {
+    "tagline": "Bygger starkare gemenskaper genom samarbete och resursdelning",
+    "description": "CommuniTree är en plattform som hjälper gemenskaper att ansluta, dela resurser och arbeta tillsammans mot en mer hållbar framtid.",
+    "signIn": "Logga in",
+    "joinNow": "Gå med nu",
+    "features": {
+      "community": "Gemenskapsbyggande",
+      "communityDesc": "Anslut med grannar och bygg varaktiga relationer inom din lokala gemenskap.",
+      "resources": "Resursdelning",
+      "resourcesDesc": "Dela och låna resurser effektivt, minska avfall och bygg förtroende.",
+      "sustainable": "Hållbart levande",
+      "sustainableDesc": "Arbeta tillsammans mot miljömässiga och sociala hållbarhetsmål."
+    }
+  },
+  "auth": {
+    "loginTitle": "Logga in på ditt konto",
+    "registerTitle": "Skapa ett konto",
+    "emailLabel": "E-postadress",
+    "passwordLabel": "Lösenord",
+    "usernameLabel": "Användarnamn",
+    "loginButton": "Logga in",
+    "registerButton": "Registrera",
+    "noAccount": "Inte medlem än? ",
+    "haveAccount": "Har du redan ett konto? ",
+    "registerLink": "Registrera nu",
+    "loginLink": "Logga in",
+    "logout": "Logga ut"
+  },
+  "error": {
+    "title": "Fel {code}",
+    "notFound": "Sidan du söker finns inte.",
+    "forbidden": "Du har inte behörighet att se denna sida.",
+    "unauthorized": "Logga in för att se denna sida.",
+    "unknown": "Något gick fel.",
+    "goBack": "Gå tillbaka",
+    "goHome": "Gå till startsidan"
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "home": {
+    "tagline": "Building stronger communities through collaboration and resource sharing",
+    "description": "CommuniTree is a platform that helps communities connect, share resources, and work together towards a more sustainable future.",
+    "signIn": "Sign In",
+    "joinNow": "Join Now",
+    "features": {
+      "community": "Community Building",
+      "communityDesc": "Connect with neighbors and build lasting relationships within your local community.",
+      "resources": "Resource Sharing",
+      "resourcesDesc": "Share and borrow resources efficiently, reducing waste and building trust.",
+      "sustainable": "Sustainable Living",
+      "sustainableDesc": "Work together towards environmental and social sustainability goals."
+    }
+  },
+  "auth": {
+    "loginTitle": "Sign in to your account",
+    "registerTitle": "Create an account",
+    "emailLabel": "Email address",
+    "passwordLabel": "Password",
+    "usernameLabel": "Username",
+    "loginButton": "Sign in",
+    "registerButton": "Register",
+    "noAccount": "Not a member yet? ",
+    "haveAccount": "Already have an account? ",
+    "registerLink": "Register now",
+    "loginLink": "Sign in",
+    "logout": "Sign out",
+    "sessionExpired": "Your session has expired",
+    "backToLogin": "Back to Login"
+  },
+  "error": {
+    "title": "Error {code}",
+    "notFound": "The page you're looking for doesn't exist.",
+    "forbidden": "You don't have permission to access this page.",
+    "unauthorized": "Please log in to access this page.",
+    "unknown": "Something went wrong.",
+    "goBack": "Go Back",
+    "goHome": "Go Home",
+    "sessionExpired": "Din session har gått ut",
+    "backToLogin": "Tillbaka till inloggning"
+  }
+}
